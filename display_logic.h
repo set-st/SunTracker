@@ -20,18 +20,45 @@ struct SensorBox {
  * @param values Массив из 4-х значений для отображения
  */
 /**
+ * Отрисовка верхней панели статуса
+ * @param it Ссылка на дисплей
+ * @param font Шрифт для букв
+ * @param auto_backlight Включена ли автоподсветка
+ * @param invert Включена ли инверсия
+ * @param endstop_active Нажат ли концевик
+ * @param night_return Включен ли автовозврат
+ */
+void draw_status_header(display::Display &it, display::BaseFont *font, bool auto_backlight, bool invert, bool endstop_active, bool night_return) {
+    int center_x = it.get_width() / 2;
+    int screen_w = it.get_width();
+    int y = 0; // Сдвинуто вверх на 4 пикселя (было 4)
+
+    // Центрируем группу букв
+    // B - Backlight, N - Night return, I - Invert
+    if (auto_backlight) it.print(center_x - 15, y, font, "B");
+    if (night_return)   it.print(center_x - 2, y, font, "R");
+    if (invert)         it.print(center_x + 11, y, font, "I");
+
+    // Индикация эндстопа в углу
+    if (endstop_active) {
+        it.print(screen_w - 38, y, font, "E");
+    }
+}
+
+/**
  * Отрисовка статуса трекера (угол и стрелки направления)
  * @param it Ссылка на дисплей
- * @param font Шрифт
+ * @param font Шрифт текста
  * @param angle Текущий угол в градусах
- * @param move_dir Направление движения: 0 - стоп, 1 - влево (<<), 2 - вправо (>>)
+ * @param move_dir Направление движения: 0 - стоп, 1 - влево, 2 - вправо
  */
 void draw_tracker_status(display::Display &it, display::BaseFont *font, float angle, int move_dir) {
     const char* left_arrow = (move_dir == 1) ? "<< " : "";
     const char* right_arrow = (move_dir == 2) ? " >>" : "";
     
-    // Форматируем строку: стрелка_влево A:угол* стрелка_вправо
-    it.printf(64, 56, font, display::TextAlign::CENTER, "%sA:%.1f*%s", left_arrow, angle, right_arrow);
+    // Форматируем строку: << A:угол° >>
+    // Y=20 (под буквами статуса)
+    it.printf(64, 20, font, display::TextAlign::CENTER, "%sA:%.1f°%s", left_arrow, angle, right_arrow);
 }
 
 void draw_sensor_boxes(display::Display &it, display::BaseFont *font, const float *values, int box_w = 28, int box_h = 14) {

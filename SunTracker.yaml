@@ -71,6 +71,8 @@ binary_sensor:
       inverted: true
     id: min_endstop
     name: "Min Endstop"
+    filters:
+      - delayed_on: 50ms
 
 script:
   - id: homing_script
@@ -106,7 +108,7 @@ font:
     id: terminus
     size: 12
     glyphs:
-       - '!"#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~ '
+       - '!"#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~ °'
        - 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
   - file: "fonts/PixelOperator8.ttf"
     id: pixel8
@@ -151,6 +153,18 @@ switch:
             id(g_invert) = false;
             id(my_display).invert(false);
             id(my_display).update();
+
+  - platform: template
+    name: "Auto Backlight"
+    id: auto_backlight_val
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    name: "Night Return"
+    id: night_return_val
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
 
 number:
   - platform: template
@@ -260,9 +274,36 @@ stepper:
     acceleration: 100 steps/s^2
 
 interval:
-  - interval: 2s
+  - interval: 200ms
     then:
       - lambda: 'update_tracker();'
+  - interval: 5s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(auto_backlight_val).state;'
+          then:
+            - lambda: |-
+                // Берем среднее значение с двух датчиков
+                float l = id(photoresistor_left).state;
+                float r = id(photoresistor_right).state;
+                if (std::isnan(l)) l = 3.3f; // Если данных нет, считаем что темно (для инвертированных датчиков)
+                if (std::isnan(r)) r = 3.3f;
+                
+                float avg_v = (l + r) / 2.0f;
+                
+                // Инвертированные датчики: 3.3V = темно, 0V = ярко.
+                // Нам нужно: темно -> тускло (10%), светло -> ярко (80%).
+                // Нормализуем: 0.0 (ярко) ... 3.3 (темно) -> 0.8 (ярко) ... 0.1 (тускло)
+                float brightness = 0.8f - (avg_v / 3.3f) * (0.8f - 0.1f);
+                
+                // Ограничиваем границы
+                if (brightness < 0.1f) brightness = 0.1f;
+                if (brightness > 0.8f) brightness = 0.8f;
+                
+                auto call = id(display_backlight).make_call();
+                call.set_brightness(brightness);
+                call.perform();
 
 display:
   - platform: st7565r
@@ -278,9 +319,10 @@ display:
       float sensor_values[4] = {NAN, NAN, l_val, r_val};
       
       draw_sensor_boxes(it, id(pixel8), sensor_values);
+      draw_status_header(it, id(terminus), id(auto_backlight_val).state, id(g_invert), id(min_endstop).state, id(night_return_val).state);
       
       if (id(g_status_msg).length() > 0) {
-        it.printf(64, 32, id(terminus), TextAlign::CENTER, "%s", id(g_status_msg).c_str());
+        it.printf(64, 35, id(terminus), TextAlign::CENTER, "%s", id(g_status_msg).c_str());
       }
       
       draw_tracker_status(it, id(terminus), get_current_angle(), get_move_direction());

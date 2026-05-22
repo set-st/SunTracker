@@ -14,13 +14,28 @@ void update_tracker() {
         return;
     }
 
-    // Получаем текущие значения сенсоров и применяем калибровку
-    float left = id(photoresistor_left).state + id(left_offset_val).state;
-    float right = id(photoresistor_right).state + id(right_offset_val).state;
+    // Получаем текущие значения сенсоров (сырые) для проверки на "ночь"
+    float raw_l = id(photoresistor_left).state;
+    float raw_r = id(photoresistor_right).state;
+
+    // Применяем калибровку для логики трекера
+    float left = raw_l + id(left_offset_val).state;
+    float right = raw_r + id(right_offset_val).state;
 
     // Если данные невалидны (NaN), ничего не делаем
     if (std::isnan(left) || std::isnan(right)) {
         return;
+    }
+
+    // ЛОГИКА НОЧНОГО ВОЗВРАТА
+    // Если оба датчика показывают темноту (высокое напряжение для инвертированных модулей)
+    // И включен режим возврата
+    if (id(night_return_val).state && raw_l > 3.0f && raw_r > 3.0f) {
+        if (id(tracker_stepper).current_position > 0) {
+            id(tracker_stepper).set_target(0);
+            ESP_LOGD("tracker", "Night detected (L=%.2f, R=%.2f). Returning home.", raw_l, raw_r);
+        }
+        return; // Выходим, чтобы обычный трекинг не мешал возврату
     }
 
     // Разница между датчиками
@@ -29,8 +44,8 @@ void update_tracker() {
     // Порог срабатывания из интерфейса
     float threshold = id(tracking_threshold_val).state; 
     
-    // Шаг перемещения
-    int move_steps = 15;
+    // Шаг перемещения (при частом обновлении 200мс будет выглядеть плавно)
+    int move_steps = 20;
     
     // Расчет лимитов
     float steps_per_deg = id(steps_per_degree_val).state;
@@ -40,7 +55,9 @@ void update_tracker() {
     if (std::abs(delta) > threshold) {
         // ИНВЕРТИРОВАННАЯ ЛОГИКА (сенсоры): 
         // Если на левом датчике напряжение МЕНЬШЕ (delta < 0), значит там СВЕТЛЕЕ.
-        int target_delta = (delta < 0) ? move_steps : -move_steps;
+        // Если светлее слева, уменьшаем позицию (едем к 0).
+        // Если светлее справа, увеличиваем позицию (едем к max).
+        int target_delta = (delta < 0) ? -move_steps : move_steps;
         int target_pos = current_pos + target_delta;
 
         // Проверка программных лимитов (0 - max_steps)

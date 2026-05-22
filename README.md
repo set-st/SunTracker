@@ -6,11 +6,18 @@ This project is a high-precision SunTracker built using an **ESP32-S3**, two inf
 
 - **Dynamic Tracking:** Automatically aligns with the strongest light source using two calibrated sensors.
 - **Auto-Homing:** Automatically finds the "Zero" position at startup using a physical endstop (GPIO13).
+- **Night Return:** Automatically returns the tracker to the "East" (position 0) when darkness is detected, preparing for sunrise.
+- **Adaptive Backlight:** Dynamically adjusts display brightness (10% to 80%) based on ambient light levels to reduce glare at night.
 - **Interactive UI:** Real-time display of:
-  - Calibrated sensor values (S3/S4).
-  - Current rotation angle in degrees.
-  - Movement direction indicators (`<<` and `>>`).
-  - Homing status messages.
+  - Calibrated sensor values (S3/S4) in the corners.
+  - Current rotation angle in degrees (e.g., `A:45.0°`).
+  - Text-based status indicators (Terminus font):
+    - **B** (Auto Backlight active)
+    - **R** (Night Return active)
+    - **I** (Inverted Colors active)
+    - **E** (Endstop Triggered)
+  - Movement direction indicators (`<<` and `>>`) flanking the angle value.
+  - Homing status and system messages (e.g., `Homing...`, `Ready!`) centered on screen.
 - **Configurable Limits:** Software-defined maximum rotation angle and gear ratio support.
 - **In-App Calibration:** Adjust sensor offsets and tracking sensitivity (threshold) on the fly via Home Assistant or Web UI.
 
@@ -55,9 +62,13 @@ The sensors may have different physical characteristics.
 ### 3. Drift Prevention (`Tracking Threshold`)
 Adjust the **Tracking Threshold** to set a "deadband". A value of `0.05` to `0.15` is recommended to prevent the motor from jittering due to minor light fluctuations.
 
+### 4. Night Return & Auto Backlight
+- **Night Return:** When enabled, the tracker monitors raw voltage. If both sensors report > 3.0V (darkness), the system moves to position 0.
+- **Auto Backlight:** Adjusts the ST7565R backlight based on the average light level of the sensors for a more comfortable experience.
+
 ## 📁 Project Structure
 
-- `hello_display.yaml`: Main ESPHome configuration.
+- `SunTracker.yaml`: Main ESPHome configuration.
 - `tracker_logic.h`: Core tracking algorithm and math.
 - `display_logic.h`: Helper functions for ST7565R drawing.
 - `custom_components/st7565r/`: Specialized display driver.

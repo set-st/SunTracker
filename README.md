@@ -2,6 +2,8 @@
 
 This project is a high-precision SunTracker built using an **ESP32-S3**, two infrared light sensors (with analog output), a stepper motor, and a graphic LCD display (ST7565R).
 
+![Screen](screen.jpg)
+
 ## 🚀 Features
 
 - **Dynamic Tracking:** Automatically aligns with the strongest light source using two calibrated sensors.

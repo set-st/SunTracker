@@ -256,13 +256,21 @@ sensor:
     id: photoresistor_left
     name: "Photoresistor Left"
     update_interval: 1s
-    attenuation: 11db
+    attenuation: 12db
   - platform: adc
     pin: GPIO2
     id: photoresistor_right
     name: "Photoresistor Right"
     update_interval: 1s
-    attenuation: 11db
+    attenuation: 12db
+  - platform: template
+    name: "Horizontal Angle"
+    id: horizontal_angle
+    icon: "mdi:axis-z-rotate-clockwise" #horizontal-rotate-clockwise
+    unit_of_measurement: "°"
+    lambda: |-
+      return get_current_angle();
+    update_interval: 30s
 
 stepper:
   - platform: a4988

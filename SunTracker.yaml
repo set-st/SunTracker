@@ -1,0 +1,286 @@
+esphome:
+  name: suntracker
+  includes:
+    - display_logic.h
+    - tracker_logic.h
+  on_boot:
+    priority: -100
+    then:
+      - output.set_level:
+          id: backlight_pwm
+          level: 0.30
+      - script.execute: homing_script
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "XiFfd6aypmnTsFkRVrdaplsPXfxfNDWkgooZzKtrPf4="
+
+ota:
+  - platform: esphome
+    password: "126a7f669f870e3901f9f694cb3b20f0"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Esp32-S3 Fallback Hotspot"
+    password: "kIMMXXFYKoYb"
+
+web_server:
+  port: 80
+  version: 3
+
+captive_portal:
+
+
+# Глобальные переменные для хранения состояния (без авто-применения при старте)
+globals:
+  - id: g_coarse
+    type: int
+    initial_value: '6'
+    restore_value: yes
+  - id: g_fine
+    type: int
+    initial_value: '35'
+    restore_value: yes
+  - id: g_invert
+    type: bool
+    initial_value: 'false'
+    restore_value: yes
+  - id: is_homed
+    type: bool
+    initial_value: 'false'
+  - id: g_status_msg
+    type: std::string
+    initial_value: '"Initializing..."'
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO13
+      mode: INPUT_PULLUP
+      inverted: true
+    id: min_endstop
+    name: "Min Endstop"
+
+script:
+  - id: homing_script
+    then:
+      - lambda: 'id(g_status_msg) = "Homing...";'
+      - logger.log: "Starting homing..."
+      # Медленно движемся влево до срабатывания концевика
+      - stepper.set_target:
+          id: tracker_stepper
+          target: -100000
+      - wait_until:
+          binary_sensor.is_on: min_endstop
+      # Концевик сработал: останавливаемся и сбрасываем позицию в 0
+      - stepper.report_position:
+          id: tracker_stepper
+          position: 0
+      - stepper.set_target:
+          id: tracker_stepper
+          target: 0
+      - lambda: |-
+          id(is_homed) = true;
+          id(g_status_msg) = "Ready!";
+      - logger.log: "Homing complete."
+      - delay: 2s
+      - lambda: 'id(g_status_msg) = "";'
+
+spi:
+  clk_pin: GPIO12
+  mosi_pin: GPIO11
+
+font:
+  - file: "fonts/TerminusTTFWindows-4.49.3.ttf"
+    id: terminus
+    size: 12
+    glyphs:
+       - '!"#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~ '
+       - 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+  - file: "fonts/PixelOperator8.ttf"
+    id: pixel8
+    size: 8
+    glyphs:
+       - '!"#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~ '
+
+output:
+  - platform: ledc
+    pin: GPIO7
+    id: backlight_pwm
+    frequency: 20000Hz
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "Display Backlight"
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+
+external_components:
+  - source:
+      type: local
+      path: custom_components
+    components: [ st7565r ]
+
+switch:
+  - platform: template
+    name: "Display Invert Colors"
+    id: invert_val
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      then:
+        - lambda: |-
+            id(g_invert) = true;
+            id(my_display).invert(true);
+            id(my_display).update();
+    turn_off_action:
+      then:
+        - lambda: |-
+            id(g_invert) = false;
+            id(my_display).invert(false);
+            id(my_display).update();
+
+number:
+  - platform: template
+    name: "Display Coarse Brightness"
+    id: coarse_val
+    min_value: 0
+    max_value: 7
+    step: 1
+    initial_value: 6
+    optimistic: true
+    restore_value: true
+    set_action:
+      then:
+        - lambda: |-
+            id(g_coarse) = (int)x;
+            id(my_display).set_internal_resistor_ratio((uint8_t)x);
+            id(my_display).update();
+
+  - platform: template
+    name: "Display Fine Contrast"
+    id: contrast_val
+    min_value: 0
+    max_value: 63
+    step: 1
+    initial_value: 35
+    optimistic: true
+    restore_value: true
+    set_action:
+      then:
+        - lambda: |-
+            id(g_fine) = (int)x;
+            id(my_display).set_contrast((uint8_t)x);
+            id(my_display).update();
+
+  - platform: template
+    name: "Left Sensor Offset"
+    id: left_offset_val
+    min_value: -1.0
+    max_value: 1.0
+    step: 0.01
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    name: "Right Sensor Offset"
+    id: right_offset_val
+    min_value: -1.0
+    max_value: 1.0
+    step: 0.01
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    name: "Tracking Threshold"
+    id: tracking_threshold_val
+    min_value: 0.01
+    max_value: 0.5
+    step: 0.01
+    initial_value: 0.05
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    name: "Max Rotation Angle"
+    id: max_angle_val
+    min_value: 10
+    max_value: 360
+    step: 1
+    initial_value: 180
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    name: "Steps Per Degree"
+    id: steps_per_degree_val
+    min_value: 1
+    max_value: 1000
+    step: 0.1
+    initial_value: 20
+    optimistic: true
+    restore_value: true
+
+
+sensor:
+  - platform: adc
+    pin: GPIO1
+    id: photoresistor_left
+    name: "Photoresistor Left"
+    update_interval: 1s
+    attenuation: 11db
+  - platform: adc
+    pin: GPIO2
+    id: photoresistor_right
+    name: "Photoresistor Right"
+    update_interval: 1s
+    attenuation: 11db
+
+stepper:
+  - platform: a4988
+    id: tracker_stepper
+    step_pin: GPIO4
+    dir_pin: GPIO5
+    sleep_pin: GPIO6
+    max_speed: 250 steps/s
+    acceleration: 100 steps/s^2
+
+interval:
+  - interval: 2s
+    then:
+      - lambda: 'update_tracker();'
+
+display:
+  - platform: st7565r
+    id: my_display
+    cs_pin: GPIO10
+    dc_pin: GPIO9
+    reset_pin: GPIO8
+    update_interval: 200ms
+    
+    lambda: |-
+      float l_val = id(photoresistor_left).state + id(left_offset_val).state;
+      float r_val = id(photoresistor_right).state + id(right_offset_val).state;
+      float sensor_values[4] = {NAN, NAN, l_val, r_val};
+      
+      draw_sensor_boxes(it, id(pixel8), sensor_values);
+      
+      if (id(g_status_msg).length() > 0) {
+        it.printf(64, 32, id(terminus), TextAlign::CENTER, "%s", id(g_status_msg).c_str());
+      }
+      
+      draw_tracker_status(it, id(terminus), get_current_angle(), get_move_direction());

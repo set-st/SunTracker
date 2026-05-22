@@ -61,7 +61,7 @@ void draw_tracker_status(display::Display &it, display::BaseFont *font, float an
     it.printf(64, 20, font, display::TextAlign::CENTER, "%sA:%.1f°%s", left_arrow, angle, right_arrow);
 }
 
-void draw_sensor_boxes(display::Display &it, display::BaseFont *font, const float *values, int box_w = 28, int box_h = 14) {
+void draw_sensor_boxes(display::Display &it, display::BaseFont *font, const float *values, int box_w = 30, int box_h = 14) {
     int screen_w = it.get_width();
     int screen_h = it.get_height();
 
@@ -73,10 +73,10 @@ void draw_sensor_boxes(display::Display &it, display::BaseFont *font, const floa
     };
 
     BoxConfig boxes[] = {
-        {-1, -1, "S1"},
-        {(screen_w - box_w)+1, -1, "S2"},
-        {-1, (screen_h - box_h)+1, "S3"},
-        {(screen_w - box_w)+1, (screen_h - box_h)+1, "S4"}
+        {-1, -1, "TL"},
+        {(screen_w - box_w)+1, -1, "TR"},
+        {-1, (screen_h - box_h)+1, "BL"},
+        {(screen_w - box_w)+1, (screen_h - box_h)+1, "BR"}
     };
 
     for (int i = 0; i < 4; i++) {
@@ -94,9 +94,13 @@ void draw_sensor_boxes(display::Display &it, display::BaseFont *font, const floa
 
         // Вывод значения
         if (std::isnan(value)) {
-            it.printf(box.x + box_w / 2, box.y + box_h / 2, font, display::TextAlign::CENTER, "---");
+            it.printf(box.x + box_w / 2, box.y + box_h / 2, font, display::TextAlign::CENTER, box.label);
         } else {
-            it.printf(box.x + box_w / 2, box.y + box_h / 2, font, display::TextAlign::CENTER, "%.2f", value);
+            // Ограничиваем value в пределах от 0.0 до 3.10, чтобы проценты не выходили за 0-100%
+            float clamped_value = std::max(0.0f, std::min(value, 3.10f));
+            // Считаем инвертированный процент
+            float percentage = (1.0f - (clamped_value / 3.10f)) * 100.0f;
+            it.printf(box.x + box_w / 2, box.y + box_h / 2, font, display::TextAlign::CENTER, "%.1f", percentage);
         }
     }
 }

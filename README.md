@@ -56,7 +56,7 @@ Set this value based on your mechanical setup.
 ### 2. Sensor Calibration
 The sensors may have different physical characteristics.
 1. Place the tracker under uniform lighting.
-2. Observe `S3` and `S4` values on the screen.
+2. Observe `BL` and `BR` values on the screen.
 3. Adjust **Left/Right Sensor Offset** until the displayed values are equal.
 
 ### 3. Drift Prevention (`Tracking Threshold`)

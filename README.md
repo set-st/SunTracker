@@ -9,7 +9,7 @@ This project is a high-precision SunTracker built using an **ESP32-S3**, two inf
 - **Night Return:** Automatically returns the tracker to the "East" (position 0) when darkness is detected, preparing for sunrise.
 - **Adaptive Backlight:** Dynamically adjusts display brightness (10% to 80%) based on ambient light levels to reduce glare at night.
 - **Interactive UI:** Real-time display of:
-  - Calibrated sensor values (S3/S4) in the corners.
+  - Calibrated sensor values (BL/BR) in the corners.
   - Current rotation angle in degrees (e.g., `A:45.0°`).
   - Text-based status indicators (Terminus font):
     - **B** (Auto Backlight active)
@@ -42,8 +42,8 @@ This project is a high-precision SunTracker built using an **ESP32-S3**, two inf
 | **A4988 Stepper**| GPIO4 | STEP |
 | | GPIO5 | DIR |
 | | GPIO6 | SLEEP/ENABLE |
-| **Sensors** | GPIO1 | Left Sensor (AO) |
-| | GPIO2 | Right Sensor (AO) |
+| **Sensors** | GPIO1 | Left Bottom Sensor (AO) |
+| | GPIO2 | Right Bottom Sensor (AO) |
 | **Endstop** | GPIO13 | Min Limit Switch (GND) |
 
 ## ⚙️ Configuration & Calibration
